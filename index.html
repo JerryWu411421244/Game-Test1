@@ -256,7 +256,7 @@
         #btn-auto.auto-active { background: #fffb00; color: #000; box-shadow: 0 0 10px #fffb00; border-color: #fff; }
         #btn-quit { width: 100%; background: #3e4468; border-color: #626b9c #21253b #21253b #626b9c; color: #ccc; }
 
-        /* 🌟 新增：提前通關按鈕的動態霓虹樣式 */
+        /* 提前通關按鈕的動態霓虹樣式 */
         #btn-early-pass {
             width: 100%; background: #39ff14; color: #000; border-color: #fff;
             box-shadow: 0 4px 0 #054000, 0 0 12px #39ff14; display: none; margin-top: 5px;
@@ -477,7 +477,6 @@
                         <button id="btn-spin" class="btn-action">SPIN!</button>
                         <button id="btn-auto" class="btn-action">AUTO</button>
                     </div>
-                    <!-- 🌟 新增：提前通關按鈕 -->
                     <button id="btn-early-pass" class="btn-action">NEXT STAGE?</button>
                     <button id="btn-quit" class="btn-action">MENU</button>
                 </div>
@@ -533,18 +532,31 @@
             { id: 'bell',   cssClass: 'icon-bell',   weight: 2,  baseWeight: 2,  payout: 50, basePayout: 50 }
         ];
 
+        // 🌟 新規劃：5種圖形各自擁有一組機率上升與一組賠率上升之 Buff
         const BUFF_POOL = [
-            { id: 'buff_ring_prob', name: '幸運之環', desc: '綠色戒指出現機率提升 25%', effect: () => { SYMBOLS.find(s => s.id === 'ring').weight *= 1.25; } },
-            { id: 'buff_heart_payout', name: '熾熱之心', desc: '霓虹愛心基本賠率固定 +2', effect: () => { SYMBOLS.find(s => s.id === 'heart').payout += 2; } },
-            {
-                id: 'buff_orange_payout', name: '黃金蜜橘', desc: '蜜橘中獎賠率提升為 1.5 倍',
-                effect: () => { let s = SYMBOLS.find(s => s.id === 'orange'); s.payout = Math.round(s.payout * 1.5); }
-            },
-            { id: 'buff_grape_prob', name: '豐收葡萄', desc: '紫色葡萄出現機率提升 50%', effect: () => { SYMBOLS.find(s => s.id === 'grape').weight *= 1.5; } },
-            { id: 'buff_bell_prob', name: '風暴之鈴', desc: '金色鈴鐺出現機率翻倍 (x2)', effect: () => { SYMBOLS.find(s => s.id === 'bell').weight *= 2; } },
+            // 1. 戒指 Buff 
+            { id: 'buff_ring_prob', name: '幸運之環 I', desc: '綠色戒指出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'ring').weight *= 1.4; } },
+            { id: 'buff_ring_payout', name: '鑽石刻印 I', desc: '綠色戒指中獎賠率加倍固定 +2', effect: () => { SYMBOLS.find(s => s.id === 'ring').payout += 2; } },
+            
+            // 2. 愛心 Buff
+            { id: 'buff_heart_prob', name: '粉紅霓虹 I', desc: '霓虹愛心出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'heart').weight *= 1.4; } },
+            { id: 'buff_heart_payout', name: '熾熱之心 I', desc: '霓虹愛心根本賠率固定 +3', effect: () => { SYMBOLS.find(s => s.id === 'heart').payout += 3; } },
+            
+            // 3. 橘子 Buff
+            { id: 'buff_orange_prob', name: '盛夏果園 I', desc: '黃金蜜橘出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'orange').weight *= 1.4; } },
+            { id: 'buff_orange_payout', name: '蜜橘巨星 I', desc: '黃金蜜橘基本賠率固定 +4', effect: () => { SYMBOLS.find(s => s.id === 'orange').payout += 4; } },
+            
+            // 4. 葡萄 Buff
+            { id: 'buff_grape_prob', name: '豐收巨浪 I', desc: '紫色葡萄出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'grape').weight *= 1.4; } },
+            { id: 'buff_grape_payout', name: '皇家釀造 I', desc: '紫色葡萄中獎賠率提升為 1.5 倍', effect: () => { let s = SYMBOLS.find(s => s.id === 'grape'); s.payout = Math.round(s.payout * 1.5); } },
+            
+            // 5. 鈴鐺 Buff
+            { id: 'buff_bell_prob', name: '福音天籟 I', desc: '金色鈴鐺出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'bell').weight *= 1.4; } },
+            { id: 'buff_bell_payout', name: '黃金盛宴 I', desc: '金色鈴鐺中獎賠率狂飆翻倍 (x2)', effect: () => { SYMBOLS.find(s => s.id === 'bell').payout *= 2; } },
+            
+            // 系統保命/機制 Buff 保留
             { id: 'buff_revive_half', name: '時光倒流', desc: '【保命符】若挑戰失敗，可復活繼續，並獲得上關目標 50% 的救命金(限一次)', effect: () => { hasReviveBuff = true; } },
-            { id: 'buff_add_5_rounds', name: '時間沙漏', desc: '【即時生效】使當前關卡的剩餘輪數立刻增加 5 輪', effect: () => { survivalRound -= 5; } },
-            { id: 'buff_free_bet_half', name: '免費贊助', desc: '【僅限下一關】獲得免扣金額的免費投注額度，額度為本關目標的 50%', effect: () => { nextStageFreeBetPool += Math.round(targetMoney * 0.5); } }
+            { id: 'buff_add_5_rounds', name: '時間沙漏', desc: '【即時生效】使當前關卡的剩餘輪數立刻增加 5 輪', effect: () => { survivalRound -= 5; } }
         ];
 
         const CELL_HEIGHT = 78;
@@ -575,7 +587,7 @@
         const btnSpin = document.getElementById('btn-spin');
         const btnAuto = document.getElementById('btn-auto');
         const btnQuit = document.getElementById('btn-quit');
-        const btnEarlyPass = document.getElementById('btn-early-pass'); // 🌟 提前通關按鈕
+        const btnEarlyPass = document.getElementById('btn-early-pass'); 
         const infoTableBody = document.getElementById('info-table-body');
         const lblMoney = document.getElementById('lbl-money');
         const lblBet = document.getElementById('lbl-bet');
@@ -667,7 +679,6 @@
                 lblRound.textContent = remRounds < 0 ? 0 : remRounds;
                 boxTarget.style.display = 'block';
 
-                // 🌟 檢查是否超過目標金額，是的話顯示「提前通關」按鈕，否則隱藏
                 if (money >= targetMoney && !isSpinning) {
                     btnEarlyPass.style.display = 'block';
                 } else {
@@ -736,7 +747,6 @@
             }
             isSpinning = true;
 
-            // 轉動時先隱藏提前通關按鈕，避免轉動中誤觸
             btnEarlyPass.style.display = 'none';
 
             if (isFreeSpin) {
@@ -897,7 +907,6 @@
             }
         }
 
-        // 🌟 新增：執行提前通關的函式
         function triggerEarlyPass() {
             if (isSpinning || money < targetMoney) return;
             stopAutoPlay();
@@ -939,7 +948,7 @@
         btnSpin.addEventListener('click', () => { stopAutoPlay(); spinMachine(); });
         btnAuto.addEventListener('click', toggleAutoPlay); 
         btnQuit.addEventListener('click', quitToMenu);
-        btnEarlyPass.addEventListener('click', triggerEarlyPass); // 🌟 綁定提前通關事件
+        btnEarlyPass.addEventListener('click', triggerEarlyPass); 
         initInfoTable();
     </script>
 </body>
