@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素霓虹電玩 - 老虎機 (Roguelike 提前通關版)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- 全域賽博像素風格 --- */
+        * {
+            box-sizing: border-box;
+            image-rendering: pixelated; 
+            font-family: 'Press Start 2P', monospace, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background-color: #050510; 
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 🌟 夜晚星空動態背景 */
+        .starfield {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1; overflow: hidden;
+        }
+        .stars-layer-1, .stars-layer-2, .stars-layer-3 {
+            position: absolute; width: 4px; height: 4px; background: transparent;
+        }
+        .stars-layer-1 {
+            box-shadow: 
+                10vw 15vh #ffffff, 25vw 35vh #fffb00, 45vw 20vh #00e5ff, 
+                70vw 10vh #ff2a74, 85vw 40vh #ffffff, 90vw 15vh #39ff14,
+                15vw 75vh #00e5ff, 35vw 85vh #ffffff, 60vw 65vh #ff2a74,
+                80vw 80vh #fffb00, 50vw 45vh #ffffff, 95vw 70vh #9933ff;
+            animation: star-breath 3s ease-in-out infinite alternate;
+        }
+        .stars-layer-2 {
+            width: 3px; height: 3px;
+            box-shadow: 
+                5vw 40vh #ffffff, 20vw 10vh #00e5ff, 30vw 60vh #ffffff, 
+                55vw 15vh #fffb00, 65vw 30vh #ff2a74, 75vw 55vh #ffffff,
+                85vw 85vh #39ff14, 40vw 25vh #9933ff, 92vw 45vh #00e5ff,
+                12vw 90vh #ffffff, 52vw 75vh #ffffff, 72vw 90vh #ff2a74;
+            animation: star-breath 4.5s ease-in-out infinite alternate-reverse;
+        }
+        .stars-layer-3 {
+            width: 2px; height: 2px;
+            box-shadow: 
+                2vw 25vh rgba(255,255,255,0.6), 18vw 45vh rgba(0,229,255,0.5), 
+                28vw 80vh rgba(255,255,255,0.7), 38vw 5vh rgba(255,42,116,0.5), 
+                48vw 90vh rgba(255,255,255,0.6), 68vw 45vh rgba(255,255,255,0.8), 
+                78vw 25vh rgba(255,251,0,0.5), 88vw 10vh rgba(255,255,256,0.6),
+                63vw 80vh rgba(57,255,20,0.5), 96vw 95vh rgba(153,51,255,0.5);
+            animation: star-breath 6s ease-in-out infinite alternate;
+        }
+        @keyframes star-breath {
+            0% { opacity: 0.2; transform: scale(0.8) translate(0, 0); }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; transform: scale(1.1) translate(4px, -4px); }
+        }
+
+        /* 主遊戲機台容器 */
+        .arcade-cabinet {
+            background: rgba(20, 22, 40, 0.95); 
+            border: 4px solid #2d325a;
+            border-radius: 12px;
+            box-shadow: 
+                0 0 35px rgba(0, 0, 0, 0.9), 
+                0 0 20px rgba(45, 50, 90, 0.6),
+                inset 0 0 25px rgba(45, 50, 90, 0.5);
+            padding: 24px;
+            width: 100%;
+            max-width: 950px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; 
+            z-index: 10;
+        }
+
+        .arcade-header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-right: 80px; 
+        }
+
+        .arcade-title {
+            font-size: 18px; 
+            color: #ff2a74; 
+            text-shadow: 0 0 8px #ff2a74;
+            letter-spacing: 2px;
+        }
+
+        /* 頂部按鈕群組 */
+        .header-btn-group {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-trigger {
+            background: #1c1e36;
+            border: 2px solid #333861;
+            color: #00e5ff;
+            font-size: 16px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 0 #000;
+        }
+        .btn-trigger:active { transform: translateY(1px); box-shadow: 0 1px 0 #000; }
+
+        /* 雙欄內部版面 */
+        .screen-layout {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            width: 100%;
+            align-items: stretch;
+        }
+
+        .left-zone {
+            flex: 1.2; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .dash-box {
+            background: #0d0f1d;
+            border: 2px solid #222647;
+            border-radius: 6px;
+            padding: 12px 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 95px; 
+        }
+
+        .dash-label {
+            font-size: 10px; 
+            color: #7982a9;
+            margin-bottom: 8px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .dash-value { font-size: 13px; font-weight: bold; text-align: center; }
+        .glow-green { color: #39ff14; text-shadow: 0 0 8px #39ff14; }
+        .glow-yellow { color: #fffb00; text-shadow: 0 0 8px #fffb00; }
+        .glow-cyan { color: #00e5ff; text-shadow: 0 0 8px #00e5ff; }
+
+        /* 3x3 拉霸機殼 */
+        .slot-machine {
+            background: #06070d;
+            border: 4px solid #1c1e36;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,1);
+            padding: 12px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            height: 260px; 
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .reel-window {
+            background: #0a0b12; border-radius: 4px; height: 100%; width: 100%; overflow: hidden; position: relative;
+        }
+
+        .reel-container {
+            display: flex; flex-direction: column; width: 100%; position: absolute; top: 0; left: 0;
+        }
+
+        .slot-cell {
+            height: 78px; width: 100%; display: flex; justify-content: center; align-items: center; transition: background-color 0.1s;
+        }
+
+        .slot-cell.win-flash { animation: neon-flash 0.15s 12 alternate forwards; }
+        @keyframes neon-flash {
+            0% { background: #0a0b12; box-shadow: none; }
+            100% { background: rgba(255, 42, 116, 0.35); box-shadow: inset 0 0 15px #ff2a74, 0 0 10px #ff2a74; }
+        }
+
+        /* 鍵盤下注區 */
+        .keyboard-section {
+            width: 100%; background: #0d0f1d; border: 2px solid #222647; border-radius: 8px; padding: 12px;
+        }
+        .keyboard-tip { font-size: 11px; color: #565e85; margin-bottom: 12px; text-align: center; }
+        .key-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .btn-key {
+            background: #1c1e36; border: 2px solid #333861; border-radius: 4px; color: #ffffff; font-size: 14px; padding: 12px 0; cursor: pointer; box-shadow: 0 3px 0 #07080f;
+        }
+        .btn-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #07080f; }
+        .btn-key.key-clear { background: #3a1525; border-color: #66203f; color: #ff4785; }
+        .btn-key.key-back { background: #2d2314; border-color: #594320; color: #ffb638; }
+
+        /* 右側區塊 */
+        .right-zone {
+            flex: 1; display: flex; flex-direction: column; background: #111322; border: 2px solid #24284d; border-radius: 8px; padding: 12px;
+        }
+        .panel-subtitle { font-size: 12px; color: #00e5ff; text-shadow: 0 0 8px #00e5ff; text-align: center; margin-bottom: 10px; }
+        .speed-controller { background: #080912; border: 2px solid #1c1e36; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+        .speed-btn-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .btn-speed {
+            background: #1c1e36; border: 2px solid #333861; color: #7982a9; font-size: 10px; padding: 8px 0; cursor: pointer; border-radius: 4px;
+        }
+        .btn-speed.active { color: #fffb00; border-color: #fffb00; background: #2b2a14; }
+
+        /* 數據面板表格 */
+        .info-panel {
+            width: 100%; background: #080912; border: 2px solid #1c1e36; border-radius: 6px; padding: 8px; flex-grow: 1; margin-bottom: 15px; display: flex; align-items: center;
+        }
+        .info-table { width: 100%; border-collapse: collapse; }
+        .info-table th, .info-table td { border-bottom: 1px solid #141628; font-size: 11px; padding: 6px 0; }
+        .info-table th { color: #00e5ff; border-bottom: 2px solid #1c1e36; }
+        .info-table th:nth-child(1), .info-table td:nth-child(1) { text-align: center; width: 35%; }
+        .info-table th:nth-child(2), .info-table td:nth-child(2) { text-align: right; padding-right: 15px; width: 30%; }
+        .info-table th:nth-child(3), .info-table td:nth-child(3) { text-align: right; padding-right: 10px; width: 35%; }
+        .info-table td { color: #b9c1ec; }
+        .cell-icon-wrap { display: flex; justify-content: center; align-items: center; width: 100%; height: 44px; }
+
+        /* 按鈕群組 */
+        .control-panel { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+        .spin-row { display: flex; gap: 10px; width: 100%; }
+        .btn-action { padding: 15px 0; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 0 #000; border: 2px solid #fff; }
+        .btn-action:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+
+        #btn-spin { flex: 2; background: #ff2a74; color: #fff; border-color: #ff85b2 #9e0e3f #9e0e3f #ff85b2; }
+        #btn-auto { flex: 1; background: #2b2314; color: #ffb638; border-color: #594320; }
+        #btn-auto.auto-active { background: #fffb00; color: #000; box-shadow: 0 0 10px #fffb00; border-color: #fff; }
+        #btn-quit { width: 100%; background: #3e4468; border-color: #626b9c #21253b #21253b #626b9c; color: #ccc; }
+
+        /* 🌟 新增：提前通關按鈕的動態霓虹樣式 */
+        #btn-early-pass {
+            width: 100%; background: #39ff14; color: #000; border-color: #fff;
+            box-shadow: 0 4px 0 #054000, 0 0 12px #39ff14; display: none; margin-top: 5px;
+            animation: early-pass-glow 0.8s ease-in-out infinite alternate;
+        }
+        @keyframes early-pass-glow {
+            0% { box-shadow: 0 4px 0 #054000, 0 0 8px #39ff14; background: #39ff14; }
+            100% { box-shadow: 0 4px 0 #054000, 0 0 20px #fffb00; background: #fffb00; }
+        }
+
+        /* ================= 彈出視窗全域樣式 ================= */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 5, 10, 0.85); display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-overlay.active { display: flex; }
+        .settings-modal {
+            background: #141628; border: 3px solid #00e5ff; box-shadow: 0 0 20px #00e5ff; border-radius: 8px; width: 360px; padding: 20px; display: flex; flex-direction: column; gap: 16px;
+        }
+
+        /* 規則說明特定的排版 */
+        .rules-content {
+            text-align: left; font-size: 10px; color: #b9c1ec; line-height: 1.8; max-height: 350px; overflow-y: auto; padding-right: 5px;
+        }
+        .rules-content p { margin: 8px 0; }
+        .rules-content strong { color: #fffb00; }
+
+        /* ================= 🎨 16-bit 獨立定位像素圖案 ================= */
+        .px-icon { width: 40px; height: 40px; display: inline-block; position: relative; }
+        .icon-ring::after {
+            content: ""; position: absolute; top: 4px; left: 0; width: 4px; height: 4px; background: transparent;
+            box-shadow:
+                12px 0 #114b24, 16px 0 #114b24, 20px 0 #114b24, 24px 0 #114b24,
+                8px 4px #114b24, 12px 4px #a3ffb4, 16px 4px #39ff14, 20px 4px #39ff14, 24px 4px #1cba37, 28px 4px #114b24,
+                4px 8px #114b24, 8px 8px #39ff14, 32px 8px #114b24,
+                0px 12px #114b24, 4px 12px #39ff14, 32px 12px #114b24, 36px 12px #114b24,
+                0px 16px #114b24, 4px 16px #1cba37, 32px 16px #1cba37, 36px 16px #114b24,
+                0px 20px #114b24, 4px 20px #114b24, 32px 20px #114b24, 36px 20px #114b24,
+                0px 24px #114b24, 4px 24px #114b24, 32px 24px #114b24, 36px 24px #114b24,
+                4px 28px #114b24, 8px 28px #114b24, 32px 28px #114b24,
+                8px 32px #114b24, 12px 32px #114b24, 16px 32px #114b24, 20px 32px #114b24, 24px 32px #114b24, 28px 32px #114b24;
+        }
+        .icon-heart::after {
+            content: ""; position: absolute; top: 4px; left: 0; width: 4px; height: 4px; background: transparent;
+            box-shadow:
+                8px 0 #4a0018, 12px 0 #4a0018, 24px 0 #4a0018, 28px 0 #4a0018,
+                4px 4px #4a0018, 8px 4px #ffffff, 12px 4px #ff2a74, 16px 4px #4a0018, 20px 4px #4a0018, 24px 4px #ff2a74, 28px 4px #b0083e, 32px 4px #4a0018,
+                0px 8px #4a0018, 4px 8px #ff2a74, 8px 8px #ff2a74, 12px 8px #ff2a74, 16px 8px #ff2a74, 20px 8px #ff2a74, 24px 8px #ff2a74, 28px 8px #b0083e, 32px 8px #b0083e, 36px 8px #4a0018,
+                0px 12px #4a0018, 4px 12px #ff2a74, 8px 12px #ff2a74, 12px 12px #ff2a74, 16px 12px #ff2a74, 20px 12px #ff2a74, 24px 12px #ff2a74, 28px 12px #b0083e, 32px 12px #b0083e, 36px 12px #4a0018,
+                4px 16px #4a0018, 8px 16px #ff2a74, 12px 16px #ff2a74, 16px 16px #ff2a74, 20px 16px #b0083e, 24px 16px #b0083e, 28px 16px #b0083e, 32px 16px #4a0018,
+                8px 20px #4a0018, 12px 20px #ff2a74, 16px 20px #ff2a74, 20px 20px #b0083e, 24px 20px #b0083e, 28px 20px #4a0018,
+                12px 24px #4a0018, 16px 24px #b0083e, 20px 24px #b0083e, 24px 24px #4a0018,
+                16px 28px #4a0018, 20px 28px #4a0018;
+        }
+        .icon-orange::after {
+            content: ""; position: absolute; top: 4px; left: 0; width: 4px; height: 4px; background: transparent;
+            box-shadow:
+                8px 4px #5e3400, 12px 4px #5e3400, 16px 4px #5e3400, 20px 4px #5e3400, 24px 4px #5e3400, 28px 4px #5e3400,
+                4px 8px #5e3400, 8px 8px #fffb00, 12px 8px #fffb00, 16px 8px #ff9900, 20px 8px #ff9900, 24px 8px #b85c00, 28px 8px #b85c00, 32px 8px #5e3400,
+                4px 12px #5e3400, 8px 12px #fffb00, 12px 12px #fffb00, 16px 12px #ff9900, 20px 12px #ff9900, 24px 12px #b85c00, 28px 12px #b85c00, 32px 12px #5e3400,
+                4px 16px #5e3400, 8px 16px #ff9900, 12px 16px #ff9900, 16px 16px #ff9900, 20px 16px #b85c00, 24px 16px #b85c00, 28px 16px #5e3400, 32px 16px #5e3400,
+                4px 20px #5e3400, 8px 20px #ff9900, 12px 20px #b85c00, 16px 20px #b85c00, 20px 20px #5e3400, 24px 20px #5e3400, 28px 20px #5e3400, 32px 20px #5e3400,
+                8px 24px #5e3400, 12px 24px #b85c00, 16px 24px #5e3400, 20px 24px #5e3400, 24px 24px #5e3400, 28px 24px #5e3400,
+                12px 28px #5e3400, 16px 28px #5e3400, 20px 28px #5e3400, 24px 28px #5e3400;
+        }
+        .icon-grape::after {
+            content: ""; position: absolute; top: 4px; left: 0; width: 4px; height: 4px; background: transparent;
+            box-shadow:
+                16px 0 #114b24, 20px 0 #114b24,
+                12px 4px #114b24, 16px 4px #39ff14, 20px 4px #114b24,
+                12px 8px #2b0c47, 16px 8px #2b0c47, 20px 8px #2b0c47,
+                8px 12px #2b0c47, 12px 12px #d699ff, 16px 12px #9933ff, 20px 12px #9933ff, 24px 12px #2b0c47,
+                4px 16px #2b0c47, 8px 16px #d699ff, 12px 16px #9933ff, 16px 16px #9933ff, 20px 16px #571294, 24px 16px #571294, 28px 16px #2b0c47,
+                8px 20px #2b0c47, 12px 20px #9933ff, 16px 20px #9933ff, 20px 20px #571294, 24px 20px #2b0c47,
+                12px 24px #2b0c47, 16px 24px #571294, 20px 24px #2b0c47,
+                16px 28px #2b0c47;
+        }
+        .icon-bell::after {
+            content: ""; position: absolute; top: 4px; left: 0; width: 4px; height: 4px; background: transparent;
+            box-shadow:
+                16px 0 #523b00, 20px 0 #523b00,
+                16px 4px #ffea75, 20px 4px #523b00,
+                12px 8px #523b00, 16px 8px #fff2a3, 20px 8px #e6b800, 24px 8px #523b00,
+                8px 12px #523b00, 12px 12px #ffea75, 16px 12px #e6b800, 20px 12px #e6b800, 24px 12px #9c7c00, 28px 12px #523b00,
+                8px 16px #523b00, 12px 16px #e6b800, 16px 16px #e6b800, 20px 16px #9c7c00, 24px 16px #9c7c00, 28px 16px #523b00,
+                4px 20px #523b00, 8px 20px #e6b800, 12px 20px #e6b800, 16px 20px #9c7c00, 20px 20px #9c7c00, 24px 20px #523b00, 28px 20px #523b00, 32px 20px #523b00,
+                0px 24px #523b00, 4px 24px #fff2a3, 8px 24px #e6b800, 12px 24px #9c7c00, 16px 24px #9c7c00, 20px 24px #523b00, 24px 24px #523b00, 28px 24px #523b00, 32px 24px #523b00, 36px 24px #523b00,
+                0px 28px #523b00, 4px 28px #523b00, 8px 28px #523b00, 12px 28px #523b00, 16px 28px #523b00, 20px 28px #523b00, 24px 28px #523b00, 28px 28px #523b00, 32px 28px #523b00, 36px 28px #523b00,
+                16px 32px #ffffff, 20px 32px #8a8a8a;
+        }
+
+        /* 模式選單主畫面 */
+        .standalone-panel {
+            display: none; flex-direction: column; align-items: center; width: 520px; z-index: 10;
+            background: rgba(20, 22, 40, 0.9); border: 4px dashed #00e5ff; padding: 40px 30px; border-radius: 12px;
+            animation: menu-glow 3s ease-in-out infinite alternate;
+        }
+        .standalone-panel.active { display: flex; }
+        @keyframes menu-glow {
+            0% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); border-color: #00e5ff; }
+            100% { box-shadow: 0 0 40px rgba(255, 42, 116, 0.5); border-color: #ff2a74; }
+        }
+
+        .menu-title { 
+            font-size: 32px; color: #00e5ff; text-shadow: 0 0 12px #00e5ff, 0 4px 0 #051d3a; 
+            margin-bottom: 40px; text-align: center; line-height: 1.5; animation: text-pulse 1.5s linear infinite alternate;
+        }
+        @keyframes text-pulse {
+            0% { text-shadow: 0 0 8px #00e5ff; }
+            100% { text-shadow: 0 0 20px #00e5ff, 0 0 30px #00e5ff; color: #fff; }
+        }
+        
+        .btn-menu { 
+            font-family: 'Press Start 2P', monospace, sans-serif; background: #1c1e36; border: 3px solid #333861; color: #fff; 
+            padding: 20px 16px; font-size: 18px; letter-spacing: 1px; line-height: 1.4; margin: 12px 0; cursor: pointer; 
+            width: 100%; border-radius: 6px; box-shadow: 0 5px 0 #000; text-shadow: 0 2px 0 rgba(0,0,0,0.5); transition: all 0.1s ease;
+        }
+        .btn-menu:hover { background: #25294a; border-color: #00e5ff; color: #00e5ff; }
+        .btn-menu:active { transform: translateY(3px); box-shadow: 0 2px 0 #000; }
+        .btn-menu.primary { background: #ff2a74; border-color: #ff6097; text-shadow: 0 2px 0 #9e0e3f; }
+        .btn-menu.primary:hover { background: #ff478c; color: #fff; border-color: #fff; box-shadow: 0 5px 0 #000, 0 0 15px #ff2a74; }
+    </style>
+</head>
+<body>
+
+    <!-- 星空背景 -->
+    <div class="starfield">
+        <div class="stars-layer-1"></div>
+        <div class="stars-layer-2"></div>
+        <div class="stars-layer-3"></div>
+    </div>
+
+    <!-- 主選單畫面 -->
+    <div id="panel-menu" class="standalone-panel active">
+        <div class="menu-title">NEON PUMP<br>SLOT</div>
+        <button id="btn-survival" class="btn-menu primary">生存挑戰模式</button>
+        <button id="btn-endless" class="btn-menu">自由無盡模式</button>
+    </div>
+
+    <!-- 遊戲主機台 -->
+    <div id="panel-game" class="arcade-cabinet" style="display: none;">
+        <div class="header-btn-group">
+            <button id="btn-open-rules" class="btn-trigger" title="遊戲規則">❓</button>
+            <button id="btn-open-settings" class="btn-trigger" title="音效設定">⚙️</button>
+        </div>
+
+        <div class="arcade-header">
+            <div id="lbl-stage-title" class="arcade-title">生存關卡: 第 1 關</div>
+        </div>
+
+        <div class="screen-layout">
+            <div class="left-zone">
+                <div class="dashboard">
+                    <div class="dash-box">
+                        <div class="dash-label">持有金額<br>(CASH)</div>
+                        <div class="dash-value glow-green">$<span id="lbl-money">150</span></div>
+                    </div>
+                    <div class="dash-box">
+                        <div class="dash-label">目標 / 剩餘<br>(TARGET)</div>
+                        <div class="dash-value glow-yellow" id="box-target"><span id="lbl-target">500</span> / <span id="lbl-round">15</span>輪</div>
+                    </div>
+                    <div class="dash-box">
+                        <div class="dash-label">下注金額<br>(BET)</div>
+                        <div class="dash-value glow-cyan">$<span id="lbl-bet">10</span></div>
+                    </div>
+                </div>
+
+                <div class="slot-machine">
+                    <div class="reel-window"><div class="reel-container" id="reel-0"></div></div>
+                    <div class="reel-window"><div class="reel-container" id="reel-1"></div></div>
+                    <div class="reel-window"><div class="reel-container" id="reel-2"></div></div>
+                </div>
+
+                <div class="keyboard-section">
+                    <div class="keyboard-tip">點選鍵盤調整下注額 (MAX: 持有額)</div>
+                    <div class="key-grid">
+                        <button class="btn-key" onclick="pressNum(1)">1</button>
+                        <button class="btn-key" onclick="pressNum(2)">2</button>
+                        <button class="btn-key" onclick="pressNum(3)">3</button>
+                        <button class="btn-key" onclick="pressNum(4)">4</button>
+                        <button class="btn-key" onclick="pressNum(5)">5</button>
+                        <button class="btn-key" onclick="pressNum(6)">6</button>
+                        <button class="btn-key" onclick="pressNum(7)">7</button>
+                        <button class="btn-key" onclick="pressNum(8)">8</button>
+                        <button class="btn-key" onclick="pressNum(9)">9</button>
+                        <button class="btn-key key-clear" onclick="pressClear()">C</button>
+                        <button class="btn-key" onclick="pressNum(0)">0</button>
+                        <button class="btn-key key-back" onclick="pressBack()">⌫</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-zone">
+                <div class="panel-subtitle">SPEED MODE</div>
+                <div class="speed-controller">
+                    <div class="speed-btn-group">
+                        <button class="btn-speed" data-speed="1">1x</button>
+                        <button class="btn-speed" data-speed="2">2x</button>
+                        <button class="btn-speed active" data-speed="3">3x</button>
+                    </div>
+                </div>
+
+                <div class="panel-subtitle">DATA PANEL</div>
+                <div class="info-panel">
+                    <table class="info-table">
+                        <thead>
+                            <tr>
+                                <th>圖案</th>
+                                <th>賠率</th>
+                                <th>機率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="info-table-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="control-panel">
+                    <div class="spin-row">
+                        <button id="btn-spin" class="btn-action">SPIN!</button>
+                        <button id="btn-auto" class="btn-action">AUTO</button>
+                    </div>
+                    <!-- 🌟 新增：提前通關按鈕 -->
+                    <button id="btn-early-pass" class="btn-action">NEXT STAGE?</button>
+                    <button id="btn-quit" class="btn-action">MENU</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 規則說明彈出視窗 -->
+    <div id="modal-rules" class="modal-overlay">
+        <div class="settings-modal" style="width: 400px; border-color: #ff2a74; box-shadow: 0 0 20px #ff2a74;">
+            <div class="modal-title" style="color: #ff2a74; text-shadow: 0 0 8px #ff2a74; text-align: center;">📜 遊戲規則說明</div>
+            <div class="rules-content">
+                <p><strong>【基本玩法】</strong></p>
+                <p>調整好左下角的 <strong>BET(下注額)</strong> 後，點擊 SPIN 即可轉動。若水平、垂直或對角線連成 3 個相同圖案即中獎，獲得：「下注額 × 圖案賠率」的獎金。</p>
+                <hr style="border: 1px dashed #24284d; margin: 10px 0;">
+                <p><strong>【生存挑戰模式】</strong></p>
+                <p>1. 初始金額為 <strong>$200</strong>，目標金額為 <strong>$500</strong>。</p>
+                <p>2. 每關限制在 <strong>15 輪</strong>內挑戰。當 15 輪結束時，若持有金額大於或等於目標金額，即成功通關！</p>
+                <p>3. 🌟<strong>【見好就收新機制】</strong>：在 15 輪尚未結束前，<strong>只要持有金額一超越關卡目標</strong>，右下角將立刻解鎖「NEXT STAGE?」按鈕，您可以自由決定是否要提前結束並點擊它，安全通關並前往挑選 Buff！</p>
+                <p>4. 每次成功通關，可以從隨機抽出的 3 種 <strong>Buff 加成</strong>中挑選一種。隨後進入下一關。</p>
+                <hr style="border: 1px dashed #24284d; margin: 10px 0;">
+                <p><strong>【自由無盡模式】</strong></p>
+                <p>初始金額為 <strong>$1000</strong>，沒有任何輪數限制與通關壓力，供您隨心體驗拉霸樂趣。</p>
+            </div>
+            <button id="btn-close-rules" style="background:#ff2a74; border-color:#fff; color:#fff; font-size:11px; padding:10px; cursor:pointer; border-radius:4px;">關閉</button>
+        </div>
+    </div>
+
+    <!-- 音效設定彈出視窗 -->
+    <div id="modal-settings" class="modal-overlay">
+        <div class="settings-modal">
+            <div class="modal-title">⚙️ SOUND SETTINGS</div>
+            <button id="btn-close-settings">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Roguelike Buff 三選一抉擇彈出視窗 -->
+    <div id="modal-buff" class="modal-overlay">
+        <div class="settings-modal" style="width: 450px; text-align: center; border-color: #fffb00; box-shadow: 0 0 20px #fffb00;">
+            <div class="modal-title" style="color: #fffb00; text-shadow: 0 0 8px #fffb00; font-size: 14px; margin-bottom: 20px; line-height: 1.6;">
+                🌟 關卡突破！請選擇一項加成 🌟
+            </div>
+            <div id="buff-choices-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let SYMBOLS = [
+            { id: 'ring',   cssClass: 'icon-ring',   weight: 40, baseWeight: 40, payout: 2,  basePayout: 2 },
+            { id: 'heart',  cssClass: 'icon-heart',  weight: 30, baseWeight: 30, payout: 3,  basePayout: 3 },
+            { id: 'orange', cssClass: 'icon-orange', weight: 20, baseWeight: 20, payout: 5,  basePayout: 5 },
+            { id: 'grape',  cssClass: 'icon-grape',  weight: 8,  baseWeight: 8,  payout: 10, basePayout: 10 },
+            { id: 'bell',   cssClass: 'icon-bell',   weight: 2,  baseWeight: 2,  payout: 50, basePayout: 50 }
+        ];
+
+        const BUFF_POOL = [
+            { id: 'buff_ring_prob', name: '幸運之環', desc: '綠色戒指出現機率提升 25%', effect: () => { SYMBOLS.find(s => s.id === 'ring').weight *= 1.25; } },
+            { id: 'buff_heart_payout', name: '熾熱之心', desc: '霓虹愛心基本賠率固定 +2', effect: () => { SYMBOLS.find(s => s.id === 'heart').payout += 2; } },
+            {
+                id: 'buff_orange_payout', name: '黃金蜜橘', desc: '蜜橘中獎賠率提升為 1.5 倍',
+                effect: () => { let s = SYMBOLS.find(s => s.id === 'orange'); s.payout = Math.round(s.payout * 1.5); }
+            },
+            { id: 'buff_grape_prob', name: '豐收葡萄', desc: '紫色葡萄出現機率提升 50%', effect: () => { SYMBOLS.find(s => s.id === 'grape').weight *= 1.5; } },
+            { id: 'buff_bell_prob', name: '風暴之鈴', desc: '金色鈴鐺出現機率翻倍 (x2)', effect: () => { SYMBOLS.find(s => s.id === 'bell').weight *= 2; } },
+            { id: 'buff_revive_half', name: '時光倒流', desc: '【保命符】若挑戰失敗，可復活繼續，並獲得上關目標 50% 的救命金(限一次)', effect: () => { hasReviveBuff = true; } },
+            { id: 'buff_add_5_rounds', name: '時間沙漏', desc: '【即時生效】使當前關卡的剩餘輪數立刻增加 5 輪', effect: () => { survivalRound -= 5; } },
+            { id: 'buff_free_bet_half', name: '免費贊助', desc: '【僅限下一關】獲得免扣金額的免費投注額度，額度為本關目標的 50%', effect: () => { nextStageFreeBetPool += Math.round(targetMoney * 0.5); } }
+        ];
+
+        const CELL_HEIGHT = 78;
+
+        let currentMode = 'endless';
+        let money = 100;
+        let betCost = 10;
+        let isSpinning = false;
+        let isAutoPlaying = false; 
+        let gameSpeedModifier = 3;
+        let isKeypadResetMode = true;
+        let autoTimer = null;      
+
+        let survivalRound = 1;
+        let survivalStage = 1;
+        const maxSurvivalRounds = 15;
+        let targetMoney = 500;
+        let currentGridResult = [];
+
+        let hasReviveBuff = false;
+        let nextStageFreeBetPool = 0; 
+        let activeFreeBetPool = 0;    
+
+        const panelMenu = document.getElementById('panel-menu');
+        const panelGame = document.getElementById('panel-game');
+        const btnSurvival = document.getElementById('btn-survival');
+        const btnEndless = document.getElementById('btn-endless');
+        const btnSpin = document.getElementById('btn-spin');
+        const btnAuto = document.getElementById('btn-auto');
+        const btnQuit = document.getElementById('btn-quit');
+        const btnEarlyPass = document.getElementById('btn-early-pass'); // 🌟 提前通關按鈕
+        const infoTableBody = document.getElementById('info-table-body');
+        const lblMoney = document.getElementById('lbl-money');
+        const lblBet = document.getElementById('lbl-bet');
+        const lblStageTitle = document.getElementById('lbl-stage-title');
+        const lblTarget = document.getElementById('lbl-target');
+        const lblRound = document.getElementById('lbl-round');
+        const boxTarget = document.getElementById('box-target');
+
+        const modalRules = document.getElementById('modal-rules');
+        const btnOpenRules = document.getElementById('btn-open-rules');
+        const btnCloseRules = document.getElementById('btn-close-rules');
+        const modalSettings = document.getElementById('modal-settings');
+        const btnOpenSettings = document.getElementById('btn-open-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+
+        btnOpenRules.addEventListener('click', () => { stopAutoPlay(); modalRules.classList.add('active'); });
+        btnCloseRules.addEventListener('click', () => modalRules.classList.remove('active'));
+        btnOpenSettings.addEventListener('click', () => { stopAutoPlay(); modalSettings.classList.add('active'); });
+        btnCloseSettings.addEventListener('click', () => modalSettings.classList.remove('active'));
+
+        function getTotalWeight() { return SYMBOLS.reduce((sum, s) => sum + s.weight, 0); }
+
+        function initInfoTable() {
+            infoTableBody.innerHTML = '';
+            const totalW = getTotalWeight();
+            SYMBOLS.forEach(s => {
+                const tr = document.createElement('tr');
+                const p = ((s.weight / totalW) * 100).toFixed(1) + '%';
+                tr.innerHTML = `
+                    <td><div class="cell-icon-wrap"><div class="px-icon ${s.cssClass}"></div></div></td>
+                    <td style="text-align:right; padding-right:15px;">x${s.payout}</td>
+                    <td style="text-align:right; padding-right:10px;">${p}</td>
+                `;
+                infoTableBody.appendChild(tr);
+            });
+        }
+
+        function getRandomSymbolId() {
+            let rand = Math.random() * getTotalWeight();
+            for (let s of SYMBOLS) {
+                if (rand < s.weight) return s.id;
+                rand -= s.weight;
+            }
+            return SYMBOLS[0].id;
+        }
+
+        function resetAllSymbols() {
+            SYMBOLS.forEach(s => {
+                s.weight = s.baseWeight;
+                s.payout = s.basePayout;
+            });
+            hasReviveBuff = false;
+            nextStageFreeBetPool = 0;
+            activeFreeBetPool = 0;
+            initInfoTable();
+        }
+
+        function setupReels() {
+            for (let col = 0; col < 3; col++) {
+                const reel = document.getElementById(`reel-${col}`);
+                reel.innerHTML = '';
+                for (let i = 0; i < 25; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'slot-cell';
+                    const symId = getRandomSymbolId();
+                    const sym = SYMBOLS.find(s => s.id === symId);
+                    div.innerHTML = `<div class="px-icon ${sym.cssClass}"></div>`;
+                    div.dataset.id = symId;
+                    reel.appendChild(div);
+                }
+                reel.style.top = '0px';
+            }
+        }
+
+        function updateUI() {
+            lblMoney.textContent = money;
+            
+            if (activeFreeBetPool > 0) {
+                lblBet.innerHTML = `<span style="color:#39ff14; font-size:10px;">FREE</span> $${betCost}`;
+            } else {
+                lblBet.textContent = betCost;
+            }
+
+            if (currentMode === 'survival') {
+                lblStageTitle.textContent = `生存關卡: 第 ${survivalStage} 關`;
+                lblTarget.textContent = targetMoney;
+                
+                let remRounds = maxSurvivalRounds - survivalRound + 1;
+                lblRound.textContent = remRounds < 0 ? 0 : remRounds;
+                boxTarget.style.display = 'block';
+
+                // 🌟 檢查是否超過目標金額，是的話顯示「提前通關」按鈕，否則隱藏
+                if (money >= targetMoney && !isSpinning) {
+                    btnEarlyPass.style.display = 'block';
+                } else {
+                    btnEarlyPass.style.display = 'none';
+                }
+            } else {
+                lblStageTitle.textContent = `自由無盡模式`;
+                boxTarget.style.display = 'none';
+                btnEarlyPass.style.display = 'none';
+            }
+        }
+
+        function startGame(mode) {
+            resetAllSymbols(); 
+            currentMode = mode;
+            isAutoPlaying = false;
+            btnAuto.classList.remove('auto-active');
+            if (mode === 'survival') {
+                money = 200; betCost = 10; survivalRound = 1; survivalStage = 1; targetMoney = 500;
+            } else {
+                money = 1000; betCost = 10;
+            }
+            updateUI();
+            setupReels();
+            panelMenu.style.display = 'none';
+            panelGame.style.display = 'flex';
+        }
+
+        window.pressNum = function(num) {
+            if (isSpinning || isAutoPlaying) return;
+            let currentStr = isKeypadResetMode ? "" : String(betCost);
+            currentStr += num;
+            let val = parseInt(currentStr, 10) || 0;
+            if (val > money && activeFreeBetPool <= 0) val = money; 
+            betCost = val;
+            isKeypadResetMode = false;
+            updateUI();
+        };
+        window.pressClear = function() { if (isSpinning || isAutoPlaying) return; betCost = 0; isKeypadResetMode = true; updateUI(); };
+        window.pressBack = function() {
+            if (isSpinning || isAutoPlaying) return;
+            let s = String(betCost).slice(0, -1);
+            betCost = parseInt(s, 10) || 0;
+            updateUI();
+        };
+
+        document.querySelectorAll('.btn-speed').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.btn-speed').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                gameSpeedModifier = parseInt(e.target.dataset.speed, 10);
+            });
+        });
+
+        function spinMachine() {
+            let actualCost = betCost;
+            let isFreeSpin = false;
+            if (activeFreeBetPool > 0) {
+                isFreeSpin = true;
+                actualCost = 0; 
+            }
+
+            if (isSpinning || betCost <= 0 || (money < actualCost && !isFreeSpin)) {
+                stopAutoPlay(); 
+                return;
+            }
+            isSpinning = true;
+
+            // 轉動時先隱藏提前通關按鈕，避免轉動中誤觸
+            btnEarlyPass.style.display = 'none';
+
+            if (isFreeSpin) {
+                activeFreeBetPool -= betCost; 
+                if (activeFreeBetPool < 0) activeFreeBetPool = 0;
+            } else {
+                money -= betCost;
+            }
+            updateUI();
+
+            document.querySelectorAll('.slot-cell').forEach(c => c.classList.remove('win-flash'));
+
+            let stopCount = 0;
+            currentGridResult = [];
+
+            for (let col = 0; col < 3; col++) {
+                const reel = document.getElementById(`reel-${col}`);
+                const colResults = [getRandomSymbolId(), getRandomSymbolId(), getRandomSymbolId()];
+                currentGridResult.push(colResults);
+
+                for (let row = 0; row < 3; row++) {
+                    const cell = reel.children[row];
+                    const sym = SYMBOLS.find(s => s.id === colResults[row]);
+                    cell.innerHTML = `<div class="px-icon ${sym.cssClass}"></div>`;
+                    cell.dataset.id = colResults[row];
+                }
+
+                reel.style.transition = 'none';
+                reel.style.top = `-${22 * CELL_HEIGHT}px`;
+                reel.offsetHeight;
+
+                const duration = 400 / gameSpeedModifier;
+                reel.style.transition = `top ${duration + col * 150}ms cubic-bezier(0.1, 0.6, 0.1, 1.02)`;
+                reel.style.top = '0px';
+
+                setTimeout(() => {
+                    stopCount++;
+                    if (stopCount === 3) checkWinResults();
+                }, duration + col * 150);
+            }
+        }
+
+        function showBuffSelectionModal() {
+            stopAutoPlay(); 
+
+            let shuffled = [...BUFF_POOL].sort(() => 0.5 - Math.random());
+            let selectedBuffs = shuffled.slice(0, 3);
+
+            const container = document.getElementById('buff-choices-container');
+            container.innerHTML = '';
+
+            selectedBuffs.forEach(buff => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-menu';
+                btn.style.fontSize = '12px';
+                btn.style.padding = '14px 10px';
+                btn.style.margin = '6px 0';
+                btn.innerHTML = `<span style="color:#fffb00; text-shadow: 0 0 5px #fffb00;">[ ${buff.name} ]</span><br><span style="font-size:10px; color:#b9c1ec; line-height:1.5;">${buff.desc}</span>`;
+                
+                btn.onclick = () => {
+                    buff.effect(); 
+                    initInfoTable(); 
+
+                    document.getElementById('modal-buff').classList.remove('active');
+                    
+                    survivalStage++;
+                    survivalRound = 1;
+                    targetMoney += 250; 
+
+                    if (nextStageFreeBetPool > 0) {
+                        activeFreeBetPool = nextStageFreeBetPool;
+                        nextStageFreeBetPool = 0;
+                    }
+
+                    updateUI();
+                };
+                container.appendChild(btn);
+            });
+
+            document.getElementById('modal-buff').classList.add('active');
+        }
+
+        function checkWinResults() {
+            let win = 0;
+            const winningCells = [];
+
+            for (let r = 0; r < 3; r++) {
+                if (currentGridResult[0][r] === currentGridResult[1][r] && currentGridResult[1][r] === currentGridResult[2][r]) {
+                    win += betCost * SYMBOLS.find(s => s.id === currentGridResult[0][r]).payout;
+                    winningCells.push(`0-${r}`, `1-${r}`, `2-${r}`);
+                }
+            }
+
+            for (let c = 0; c < 3; c++) {
+                if (currentGridResult[c][0] === currentGridResult[c][1] && currentGridResult[c][1] === currentGridResult[c][2]) {
+                    win += betCost * SYMBOLS.find(s => s.id === currentGridResult[c][0]).payout;
+                    winningCells.push(`${c}-0`, `${c}-1`, `${c}-2`);
+                }
+            }
+
+            if (currentGridResult[0][0] === currentGridResult[1][1] && currentGridResult[1][1] === currentGridResult[2][2]) {
+                win += betCost * SYMBOLS.find(s => s.id === currentGridResult[0][0]).payout;
+                winningCells.push('0-0', '1-1', '2-2');
+            }
+
+            if (currentGridResult[0][2] === currentGridResult[1][1] && currentGridResult[1][1] === currentGridResult[2][0]) {
+                win += betCost * SYMBOLS.find(s => s.id === currentGridResult[0][2]).payout;
+                winningCells.push('0-2', '1-1', '2-0');
+            }
+
+            if (win > 0) {
+                winningCells.forEach(coord => {
+                    const [c, r] = coord.split('-').map(Number);
+                    const reel = document.getElementById(`reel-${c}`);
+                    if (reel && reel.children[r]) {
+                        reel.children[r].classList.add('win-flash');
+                    }
+                });
+            }
+
+            money += win;
+            isSpinning = false;
+
+            if (currentMode === 'survival') {
+                survivalRound++;
+                if (survivalRound > maxSurvivalRounds) {
+                    stopAutoPlay();
+                    
+                    if (money >= targetMoney) {
+                        alert(`🎉 15輪結束，成功通關！`);
+                        showBuffSelectionModal(); 
+                        return; 
+                    } else {
+                        if (hasReviveBuff) {
+                            hasReviveBuff = false; 
+                            let prevTarget = survivalStage === 1 ? 500 : (targetMoney - 250);
+                            let refundCash = Math.round(prevTarget * 0.5);
+                            money += refundCash;
+                            survivalRound = maxSurvivalRounds; 
+                            alert(`⏳ 觸發【時光倒流】Buff！\n獲得救命金 $${refundCash}！再給你最後一輪翻盤機會！`);
+                            updateUI();
+                        } else {
+                            alert(`💀 金額未達標 $${targetMoney}，遊戲結束！`);
+                            quitToMenu();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            updateUI();
+
+            if (isAutoPlaying) {
+                const nextSpinDelay = Math.max(400, 1200 - gameSpeedModifier * 300);
+                autoTimer = setTimeout(() => {
+                    if (isAutoPlaying) spinMachine();
+                }, nextSpinDelay);
+            }
+        }
+
+        // 🌟 新增：執行提前通關的函式
+        function triggerEarlyPass() {
+            if (isSpinning || money < targetMoney) return;
+            stopAutoPlay();
+            alert(`💰 見好就收！你決定在第 ${survivalRound - 1} 輪提前通關！`);
+            showBuffSelectionModal();
+        }
+
+        function toggleAutoPlay() {
+            if (isAutoPlaying) {
+                stopAutoPlay();
+            } else {
+                if (betCost <= 0 || (money < betCost && activeFreeBetPool <= 0)) {
+                    alert("持有金額不足或下注未設定！");
+                    return;
+                }
+                isAutoPlaying = true;
+                btnAuto.classList.add('auto-active');
+                if (!isSpinning) {
+                    spinMachine();
+                }
+            }
+        }
+
+        function stopAutoPlay() {
+            isAutoPlaying = false;
+            btnAuto.classList.remove('auto-active');
+            if (autoTimer) clearTimeout(autoTimer);
+        }
+
+        function quitToMenu() {
+            stopAutoPlay();
+            resetAllSymbols(); 
+            panelGame.style.display = 'none';
+            panelMenu.style.display = 'flex';
+        }
+
+        btnSurvival.addEventListener('click', () => startGame('survival'));
+        btnEndless.addEventListener('click', () => startGame('endless'));
+        btnSpin.addEventListener('click', () => { stopAutoPlay(); spinMachine(); });
+        btnAuto.addEventListener('click', toggleAutoPlay); 
+        btnQuit.addEventListener('click', quitToMenu);
+        btnEarlyPass.addEventListener('click', triggerEarlyPass); // 🌟 綁定提前通關事件
+        initInfoTable();
+    </script>
+</body>
+</html>
