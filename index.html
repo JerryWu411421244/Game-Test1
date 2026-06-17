@@ -256,7 +256,6 @@
         #btn-auto.auto-active { background: #fffb00; color: #000; box-shadow: 0 0 10px #fffb00; border-color: #fff; }
         #btn-quit { width: 100%; background: #3e4468; border-color: #626b9c #21253b #21253b #626b9c; color: #ccc; }
 
-        /* 提前通關按鈕的動態霓虹樣式 */
         #btn-early-pass {
             width: 100%; background: #39ff14; color: #000; border-color: #fff;
             box-shadow: 0 4px 0 #054000, 0 0 12px #39ff14; display: none; margin-top: 5px;
@@ -274,6 +273,50 @@
         .modal-overlay.active { display: flex; }
         .settings-modal {
             background: #141628; border: 3px solid #00e5ff; box-shadow: 0 0 20px #00e5ff; border-radius: 8px; width: 360px; padding: 20px; display: flex; flex-direction: column; gap: 16px;
+        }
+        
+        .modal-title {
+            color: #00e5ff;
+            text-shadow: 0 0 8px #00e5ff;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        /* 音量設定專用排版 */
+        .volume-setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #080912;
+            border: 2px solid #1c1e36;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        .volume-label-wrap {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #b9c1ec;
+        }
+        /* 像素風 range 滑桿美化 */
+        .pixel-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: #1c1e36;
+            height: 12px;
+            border: 2px solid #333861;
+            border-radius: 0;
+            outline: none;
+        }
+        .pixel-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #fffb00;
+            border: 2px solid #000;
+            cursor: pointer;
+            box-shadow: 0 2px 0 #000;
         }
 
         /* 規則說明特定的排版 */
@@ -381,21 +424,18 @@
 </head>
 <body>
 
-    <!-- 星空背景 -->
     <div class="starfield">
         <div class="stars-layer-1"></div>
         <div class="stars-layer-2"></div>
         <div class="stars-layer-3"></div>
     </div>
 
-    <!-- 主選單畫面 -->
     <div id="panel-menu" class="standalone-panel active">
         <div class="menu-title">NEON PUMP<br>SLOT</div>
         <button id="btn-survival" class="btn-menu primary">生存挑戰模式</button>
         <button id="btn-endless" class="btn-menu">自由無盡模式</button>
     </div>
 
-    <!-- 遊戲主機台 -->
     <div id="panel-game" class="arcade-cabinet" style="display: none;">
         <div class="header-btn-group">
             <button id="btn-open-rules" class="btn-trigger" title="遊戲規則">❓</button>
@@ -484,7 +524,6 @@
         </div>
     </div>
 
-    <!-- 規則說明彈出視窗 -->
     <div id="modal-rules" class="modal-overlay">
         <div class="settings-modal" style="width: 400px; border-color: #ff2a74; box-shadow: 0 0 20px #ff2a74;">
             <div class="modal-title" style="color: #ff2a74; text-shadow: 0 0 8px #ff2a74; text-align: center;">📜 遊戲規則說明</div>
@@ -505,15 +544,22 @@
         </div>
     </div>
 
-    <!-- 音效設定彈出視窗 -->
     <div id="modal-settings" class="modal-overlay">
         <div class="settings-modal">
             <div class="modal-title">⚙️ SOUND SETTINGS</div>
-            <button id="btn-close-settings">CLOSE</button>
+            
+            <div class="volume-setting-item">
+                <div class="volume-label-wrap">
+                    <span>主音量 (MASTER)</span>
+                    <span id="lbl-volume-val">80%</span>
+                </div>
+                <input type="range" id="slider-volume" class="pixel-slider" min="0" max="100" value="80">
+            </div>
+
+            <button id="btn-close-settings" style="background:#1c1e36; border: 2px solid #333861; color:#fff; font-size:11px; padding:10px; cursor:pointer; border-radius:4px;">CLOSE</button>
         </div>
     </div>
 
-    <!-- Roguelike Buff 三選一抉擇彈出視窗 -->
     <div id="modal-buff" class="modal-overlay">
         <div class="settings-modal" style="width: 450px; text-align: center; border-color: #fffb00; box-shadow: 0 0 20px #fffb00;">
             <div class="modal-title" style="color: #fffb00; text-shadow: 0 0 8px #fffb00; font-size: 14px; margin-bottom: 20px; line-height: 1.6;">
@@ -532,31 +578,18 @@
             { id: 'bell',   cssClass: 'icon-bell',   weight: 2,  baseWeight: 2,  payout: 50, basePayout: 50 }
         ];
 
-        // 🌟 新規劃：5種圖形各自擁有一組機率上升與一組賠率上升之 Buff
         const BUFF_POOL = [
-            // 1. 戒指 Buff 
-            { id: 'buff_ring_prob', name: '幸運之環 I', desc: '綠色戒指出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'ring').weight *= 1.4; } },
-            { id: 'buff_ring_payout', name: '鑽石刻印 I', desc: '綠色戒指中獎賠率加倍固定 +2', effect: () => { SYMBOLS.find(s => s.id === 'ring').payout += 2; } },
-            
-            // 2. 愛心 Buff
-            { id: 'buff_heart_prob', name: '粉紅霓虹 I', desc: '霓虹愛心出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'heart').weight *= 1.4; } },
-            { id: 'buff_heart_payout', name: '熾熱之心 I', desc: '霓虹愛心根本賠率固定 +3', effect: () => { SYMBOLS.find(s => s.id === 'heart').payout += 3; } },
-            
-            // 3. 橘子 Buff
-            { id: 'buff_orange_prob', name: '盛夏果園 I', desc: '黃金蜜橘出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'orange').weight *= 1.4; } },
-            { id: 'buff_orange_payout', name: '蜜橘巨星 I', desc: '黃金蜜橘基本賠率固定 +4', effect: () => { SYMBOLS.find(s => s.id === 'orange').payout += 4; } },
-            
-            // 4. 葡萄 Buff
-            { id: 'buff_grape_prob', name: '豐收巨浪 I', desc: '紫色葡萄出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'grape').weight *= 1.4; } },
-            { id: 'buff_grape_payout', name: '皇家釀造 I', desc: '紫色葡萄中獎賠率提升為 1.5 倍', effect: () => { let s = SYMBOLS.find(s => s.id === 'grape'); s.payout = Math.round(s.payout * 1.5); } },
-            
-            // 5. 鈴鐺 Buff
-            { id: 'buff_bell_prob', name: '福音天籟 I', desc: '金色鈴鐺出現機率提升 40%', effect: () => { SYMBOLS.find(s => s.id === 'bell').weight *= 1.4; } },
-            { id: 'buff_bell_payout', name: '黃金盛宴 I', desc: '金色鈴鐺中獎賠率狂飆翻倍 (x2)', effect: () => { SYMBOLS.find(s => s.id === 'bell').payout *= 2; } },
-            
-            // 系統保命/機制 Buff 保留
+            { id: 'buff_ring_prob', name: '幸運之環', desc: '綠色戒指出現機率提升 25%', effect: () => { SYMBOLS.find(s => s.id === 'ring').weight *= 1.25; } },
+            { id: 'buff_heart_payout', name: '熾熱之心', desc: '霓虹愛心基本賠率固定 +2', effect: () => { SYMBOLS.find(s => s.id === 'heart').payout += 2; } },
+            {
+                id: 'buff_orange_payout', name: '黃金蜜橘', desc: '蜜橘中獎賠率提升為 1.5 倍',
+                effect: () => { let s = SYMBOLS.find(s => s.id === 'orange'); s.payout = Math.round(s.payout * 1.5); }
+            },
+            { id: 'buff_grape_prob', name: '豐收葡萄', desc: '紫色葡萄出現機率提升 50%', effect: () => { SYMBOLS.find(s => s.id === 'grape').weight *= 1.5; } },
+            { id: 'buff_bell_prob', name: '風暴之鈴', desc: '金色鈴鐺出現機率翻倍 (x2)', effect: () => { SYMBOLS.find(s => s.id === 'bell').weight *= 2; } },
             { id: 'buff_revive_half', name: '時光倒流', desc: '【保命符】若挑戰失敗，可復活繼續，並獲得上關目標 50% 的救命金(限一次)', effect: () => { hasReviveBuff = true; } },
-            { id: 'buff_add_5_rounds', name: '時間沙漏', desc: '【即時生效】使當前關卡的剩餘輪數立刻增加 5 輪', effect: () => { survivalRound -= 5; } }
+            { id: 'buff_add_5_rounds', name: '時間沙漏', desc: '【即時生效】使當前關卡的剩餘輪數立刻增加 5 輪', effect: () => { survivalRound -= 5; } },
+            { id: 'buff_free_bet_half', name: '免費贊助', desc: '【僅限下一關】獲得免扣金額的免費投注額度，額度為本關目標的 50%', effect: () => { nextStageFreeBetPool += Math.round(targetMoney * 0.5); } }
         ];
 
         const CELL_HEIGHT = 78;
@@ -580,6 +613,52 @@
         let nextStageFreeBetPool = 0; 
         let activeFreeBetPool = 0;    
 
+        /* 🔊 音效控制核心系統 (Web Audio API) */
+        let audioCtx = null;
+        let masterGainNode = null;
+        let gameVolume = 0.8; // 初始音量 80%
+
+        /* 🎵 建立背景音樂 (BGM) 物件 */
+        // 這裡內置一個免費的 8-bit 免版權電玩音樂網址作為範例，你可以修改為你本地的檔案（如 'bgm.mp3'）
+        const bgm = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+        bgm.loop = true; // 設定循環播放
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGainNode = audioCtx.createGain();
+            masterGainNode.gain.setValueAtTime(gameVolume, audioCtx.currentTime);
+            masterGainNode.connect(audioCtx.destination);
+        }
+
+        // 控制 8-bit 的嗶嗶聲點擊音效
+        function playBeepSound(freq, duration, type = 'sine') {
+            try {
+                initAudio();
+                if (!audioCtx || gameVolume <= 0) return;
+                
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                
+                osc.connect(gainNode);
+                gainNode.connect(masterGainNode);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.log("Audio play error:", e); }
+        }
+
+        /* 🌟 更新背景音樂音量與狀態 */
+        function syncBgmVolume() {
+            bgm.volume = gameVolume; // 同步滑桿音量大小到背景音樂
+        }
+
         const panelMenu = document.getElementById('panel-menu');
         const panelGame = document.getElementById('panel-game');
         const btnSurvival = document.getElementById('btn-survival');
@@ -599,14 +678,38 @@
         const modalRules = document.getElementById('modal-rules');
         const btnOpenRules = document.getElementById('btn-open-rules');
         const btnCloseRules = document.getElementById('btn-close-rules');
+        
         const modalSettings = document.getElementById('modal-settings');
         const btnOpenSettings = document.getElementById('btn-open-settings');
         const btnCloseSettings = document.getElementById('btn-close-settings');
+        const sliderVolume = document.getElementById('slider-volume');
+        const lblVolumeVal = document.getElementById('lbl-volume-val');
 
         btnOpenRules.addEventListener('click', () => { stopAutoPlay(); modalRules.classList.add('active'); });
         btnCloseRules.addEventListener('click', () => modalRules.classList.remove('active'));
-        btnOpenSettings.addEventListener('click', () => { stopAutoPlay(); modalSettings.classList.add('active'); });
+        
+        btnOpenSettings.addEventListener('click', () => { 
+            stopAutoPlay(); 
+            initAudio(); 
+            modalSettings.classList.add('active'); 
+        });
         btnCloseSettings.addEventListener('click', () => modalSettings.classList.remove('active'));
+
+        /* 監聽滑桿即時調整音量（包含 BGM 同步） */
+        sliderVolume.addEventListener('input', (e) => {
+            let val = e.target.value;
+            lblVolumeVal.textContent = val + '%';
+            gameVolume = val / 100;
+            
+            if (masterGainNode && audioCtx) {
+                masterGainNode.gain.setValueAtTime(gameVolume, audioCtx.currentTime);
+            }
+            syncBgmVolume(); // 🌟 滑動時即時控制背景音樂音量大小
+        });
+
+        sliderVolume.addEventListener('change', () => {
+            playBeepSound(587.33, 0.15, 'square'); 
+        });
 
         function getTotalWeight() { return SYMBOLS.reduce((sum, s) => sum + s.weight, 0); }
 
@@ -692,6 +795,7 @@
         }
 
         function startGame(mode) {
+            initAudio(); 
             resetAllSymbols(); 
             currentMode = mode;
             isAutoPlaying = false;
@@ -705,10 +809,17 @@
             setupReels();
             panelMenu.style.display = 'none';
             panelGame.style.display = 'flex';
+            playBeepSound(440, 0.1, 'sine');
+
+            /* 🌟 核心：開始遊戲時啟動背景音樂 */
+            syncBgmVolume();
+            bgm.currentTime = 0; // 從頭播放
+            bgm.play().catch(e => console.log("BGM play prevented:", e));
         }
 
         window.pressNum = function(num) {
             if (isSpinning || isAutoPlaying) return;
+            playBeepSound(880, 0.05, 'sine'); 
             let currentStr = isKeypadResetMode ? "" : String(betCost);
             currentStr += num;
             let val = parseInt(currentStr, 10) || 0;
@@ -717,9 +828,14 @@
             isKeypadResetMode = false;
             updateUI();
         };
-        window.pressClear = function() { if (isSpinning || isAutoPlaying) return; betCost = 0; isKeypadResetMode = true; updateUI(); };
+        window.pressClear = function() { 
+            if (isSpinning || isAutoPlaying) return; 
+            playBeepSound(330, 0.05, 'sine');
+            betCost = 0; isKeypadResetMode = true; updateUI(); 
+        };
         window.pressBack = function() {
             if (isSpinning || isAutoPlaying) return;
+            playBeepSound(330, 0.05, 'sine');
             let s = String(betCost).slice(0, -1);
             betCost = parseInt(s, 10) || 0;
             updateUI();
@@ -727,6 +843,7 @@
 
         document.querySelectorAll('.btn-speed').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                playBeepSound(660, 0.05, 'sine');
                 document.querySelectorAll('.btn-speed').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
                 gameSpeedModifier = parseInt(e.target.dataset.speed, 10);
@@ -746,8 +863,9 @@
                 return;
             }
             isSpinning = true;
-
             btnEarlyPass.style.display = 'none';
+
+            playBeepSound(220, 0.3, 'sawtooth');
 
             if (isFreeSpin) {
                 activeFreeBetPool -= betCost; 
@@ -784,6 +902,7 @@
 
                 setTimeout(() => {
                     stopCount++;
+                    playBeepSound(440, 0.05, 'triangle'); 
                     if (stopCount === 3) checkWinResults();
                 }, duration + col * 150);
             }
@@ -807,6 +926,7 @@
                 btn.innerHTML = `<span style="color:#fffb00; text-shadow: 0 0 5px #fffb00;">[ ${buff.name} ]</span><br><span style="font-size:10px; color:#b9c1ec; line-height:1.5;">${buff.desc}</span>`;
                 
                 btn.onclick = () => {
+                    playBeepSound(880, 0.2, 'sine');
                     buff.effect(); 
                     initInfoTable(); 
 
@@ -865,6 +985,9 @@
                         reel.children[r].classList.add('win-flash');
                     }
                 });
+                playBeepSound(523.25, 0.1, 'square');
+                setTimeout(() => playBeepSound(659.25, 0.1, 'square'), 80);
+                setTimeout(() => playBeepSound(783.99, 0.2, 'square'), 160);
             }
 
             money += win;
@@ -889,6 +1012,7 @@
                             alert(`⏳ 觸發【時光倒流】Buff！\n獲得救命金 $${refundCash}！再給你最後一輪翻盤機會！`);
                             updateUI();
                         } else {
+                            playBeepSound(196, 0.5, 'sawtooth');
                             alert(`💀 金額未達標 $${targetMoney}，遊戲結束！`);
                             quitToMenu();
                             return;
@@ -910,6 +1034,7 @@
         function triggerEarlyPass() {
             if (isSpinning || money < targetMoney) return;
             stopAutoPlay();
+            playBeepSound(880, 0.3, 'sine');
             alert(`💰 見好就收！你決定在第 ${survivalRound - 1} 輪提前通關！`);
             showBuffSelectionModal();
         }
@@ -941,6 +1066,9 @@
             resetAllSymbols(); 
             panelGame.style.display = 'none';
             panelMenu.style.display = 'flex';
+
+            /* 🌟 核心：返回主選單時，暫停背景音樂 */
+            bgm.pause();
         }
 
         btnSurvival.addEventListener('click', () => startGame('survival'));
